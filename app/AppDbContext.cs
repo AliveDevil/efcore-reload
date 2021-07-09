@@ -12,10 +12,5 @@ namespace app
         public DbSet<A> A { get; set; }
 
         public DbSet<B> B { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.HasChangeTrackingStrategy(ChangeTrackingStrategy.ChangingAndChangedNotificationsWithOriginalValues);
-        }
     }
 }

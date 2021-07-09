@@ -21,7 +21,8 @@ namespace app
         {
             var host = CreateHostBuilder(args).Build();
 
-            using (var scope = host.Services.GetService<IServiceScopeFactory>().CreateScope())
+            var scopeFactory = host.Services.GetService<IServiceScopeFactory>();
+            using (var scope = scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 await context.Database.MigrateAsync();
@@ -39,11 +40,53 @@ namespace app
                 await context.SaveChangesAsync();
             }
 
-            using (var scope = host.Services.GetService<IServiceScopeFactory>().CreateScope())
+
+            using (var scope = scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await Scenario1(context);
+            }
+            await Scenario2(scopeFactory);
+        }
 
-                A a = await context.A.FirstAsync();
+        static async Task Scenario1(AppDbContext context)
+        {
+            Console.WriteLine("# Scenario 1 #");
+
+            A a = await context.A.FirstAsync();
+            Console.WriteLine(a.B?.Id);
+            if (a is INotifyPropertyChanging changing)
+            {
+                changing.PropertyChanging += (s, e) => Console.WriteLine($"Changing: {e.PropertyName}");
+            }
+            if (a is INotifyPropertyChanged changed)
+            {
+                changed.PropertyChanged += (s, e) => Console.WriteLine($"Changed: {e.PropertyName}");
+            }
+            await context.B.LoadAsync();
+            Console.WriteLine(a.B?.Id);
+            Console.WriteLine("Before Reload");
+            await context.Entry(a).ReloadAsync();
+            Console.WriteLine("After Reload Reload");
+            Console.WriteLine(a.B?.Id);
+        }
+
+        static async Task Scenario2(IServiceScopeFactory scopeFactory)
+        {
+            Console.WriteLine("# Scenario 2 #");
+
+            A a;
+            using (var scope = scopeFactory.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                a = await context.A.FirstAsync();
+            }
+            Console.WriteLine(a.B?.Id);
+
+            using (var scope = scopeFactory.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await context.B.LoadAsync();
                 Console.WriteLine(a.B?.Id);
                 if (a is INotifyPropertyChanging changing)
                 {
@@ -53,13 +96,11 @@ namespace app
                 {
                     changed.PropertyChanged += (s, e) => Console.WriteLine($"Changed: {e.PropertyName}");
                 }
-                await context.B.LoadAsync();
-                Console.WriteLine(a.B?.Id);
-                Console.WriteLine("Before Reload");
                 await context.Entry(a).ReloadAsync();
-                Console.WriteLine("After Reload Reload");
                 Console.WriteLine(a.B?.Id);
             }
         }
     }
+
+
 }
